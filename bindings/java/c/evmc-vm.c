@@ -21,17 +21,17 @@ JNIEXPORT jobject JNICALL Java_org_ethereum_evmc_EvmcVm_init(JNIEnv* jenv,
     jint rs = set_jvm(jenv);
     assert(rs == JNI_OK);
     // load the EVM
-    const char* filename = (*jenv)->GetStringUTFChars(jenv, jfilename, 0);
+    const char* filename = (*jenv)->GetStringUTFChars(jenv, jfilename, NULL);
     if (filename == NULL)
         throw_java_assert(jenv, "JNI Error: filename cannot be NULL");
     enum evmc_loader_error_code loader_error;
     evm = evmc_load_and_create(filename, &loader_error);
+    (*jenv)->ReleaseStringUTFChars(jenv, jfilename, filename);
     if (evm == NULL || loader_error != EVMC_LOADER_SUCCESS)
     {
         const char* error_msg = evmc_last_error_msg();
         throw_java_assert(jenv, error_msg ? error_msg : "Loading EVMC VM failed");
     }
-    (*jenv)->ReleaseStringUTFChars(jenv, jfilename, filename);
     jobject jresult = (*jenv)->NewDirectByteBuffer(jenv, (void*)evm, sizeof(struct evmc_vm));
     assert(jresult != NULL);
     return jresult;
