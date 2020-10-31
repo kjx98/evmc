@@ -4,7 +4,7 @@
 
 [package]
 name = "evmc-sys"
-version = "7.2.0-alpha.0"
+version = "7.5.0-alpha.0"
 authors = ["Alex Beregszaszi <alex@rtfs.hu>"]
 license = "Apache-2.0"
 repository = "https://github.com/ethereum/evmc"
@@ -13,4 +13,4 @@ categories = ["external-ffi-bindings"]
 edition = "2018"
 
 [build-dependencies]
-bindgen = "0.52.0"
+bindgen = "0.54.0"

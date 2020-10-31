@@ -1,8 +1,8 @@
-// evmone: Fast Ethereum Virtual Machine implementation
-// Copyright 2018-2019 The EVMC Authors.
+// EVMC: Ethereum Client-VM Connector API.
+// Copyright 2018-2020 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
-#include "utils.hpp"
+#include <tools/utils/utils.hpp>
 #include <ostream>
 #include <stdexcept>
 
@@ -101,6 +101,9 @@ std::ostream& operator<<(std::ostream& os, evmc_status_code status_code)
         break;
     case EVMC_WASM_TRAP:
         s = "wasm trap";
+        break;
+    case EVMC_INSUFFICIENT_BALANCE:
+        s = "insufficient balance";
         break;
     case EVMC_INTERNAL_ERROR:
         s = "internal error";

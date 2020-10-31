@@ -1,7 +1,9 @@
+// EVMC: Ethereum Client-VM Connector API.
+// Copyright 2019-2020 The EVMC Authors.
+// Licensed under the Apache License, Version 2.0.
 package org.ethereum.evmc;
 
-import static org.ethereum.evmc.Host.addContext;
-import static org.ethereum.evmc.Host.removeContext;
+import org.ethereum.evmc.EvmcLoaderException;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -19,12 +21,13 @@ public final class EvmcVm implements AutoCloseable {
    * This method loads the specified evm shared library and loads/initializes the jni bindings.
    *
    * @param filename /path/filename of the evm shared object
+   * @throws EvmcLoaderException
    */
-  public static EvmcVm create(String filename) {
+  public static EvmcVm create(String filename) throws EvmcLoaderException {
     if (!EvmcVm.isEvmcLibraryLoaded) {
       try {
         // load so containing the jni bindings to evmc
-        System.load(System.getProperty("user.dir") + "/../c/build/evmc.so");
+        System.load(System.getProperty("user.dir") + "/../c/build/lib/libevmc-java.so");
         EvmcVm.isEvmcLibraryLoaded = true;
       } catch (UnsatisfiedLinkError e) {
         System.err.println("Native code library failed to load.\n" + e);
@@ -37,18 +40,18 @@ public final class EvmcVm implements AutoCloseable {
     return evmcVm;
   }
 
-  private EvmcVm(String filename) {
-    // initialize jni and load EVM shared library
-    nativeVm = init(filename);
+  private EvmcVm(String filename) throws EvmcLoaderException {
+    nativeVm = load_and_create(filename);
   }
 
   /**
-   * This method loads the specified evm implementation and initializes jni
+   * This method loads the specified EVM implementation and returns its pointer.
    *
-   * @param filename path + filename of the evm shared object to load
-   * @return
+   * @param Path to the dynamic object representing the EVM implementation.
+   * @return Internal object pointer.
+   * @throws EvmcLoaderException
    */
-  public native ByteBuffer init(String filename);
+  private static native ByteBuffer load_and_create(String filename) throws EvmcLoaderException;
 
   /**
    * EVMC ABI version implemented by the VM instance.
@@ -56,7 +59,7 @@ public final class EvmcVm implements AutoCloseable {
    * <p>Can be used to detect ABI incompatibilities. The EVMC ABI version represented by this file
    * is in ::EVMC_ABI_VERSION.
    */
-  public native int abi_version();
+  public static native int abi_version();
 
   /**
    * The name of the EVMC VM implementation.
@@ -64,7 +67,7 @@ public final class EvmcVm implements AutoCloseable {
    * <p>It MUST be a NULL-terminated not empty string. The content MUST be UTF-8 encoded (this
    * implies ASCII encoding is also allowed).
    */
-  native String name(ByteBuffer nativeVm);
+  private static native String name(ByteBuffer nativeVm);
 
   /** Function is a wrapper around native name(). */
   public String name() {
@@ -77,7 +80,7 @@ public final class EvmcVm implements AutoCloseable {
    * <p>It MUST be a NULL-terminated not empty string. The content MUST be UTF-8 encoded (this
    * implies ASCII encoding is also allowed).
    */
-  native String version(ByteBuffer nativeVm);
+  private static native String version(ByteBuffer nativeVm);
 
   /** Function is a wrapper around native version(). */
   public String version() {
@@ -89,20 +92,19 @@ public final class EvmcVm implements AutoCloseable {
    *
    * <p>This is a mandatory method and MUST NOT be set to NULL.
    */
-  native void destroy(ByteBuffer nativeVm);
+  private static native void destroy(ByteBuffer nativeVm);
 
   /**
    * Function to execute a code by the VM instance.
    *
    * <p>This is a mandatory method and MUST NOT be set to NULL.
    */
-  native void execute(
+  private static native void execute(
       ByteBuffer nativeVm,
-      int context_index,
+      HostContext context,
       int rev,
       ByteBuffer msg,
       ByteBuffer code,
-      int size,
       ByteBuffer result);
 
   /**
@@ -111,12 +113,10 @@ public final class EvmcVm implements AutoCloseable {
    * <p>This allows the context to managed in one method
    */
   public synchronized ByteBuffer execute(
-      HostContext context, int rev, ByteBuffer msg, ByteBuffer code, int size) {
-    int context_index = addContext(context);
+      HostContext context, int rev, ByteBuffer msg, ByteBuffer code) {
     int resultSize = get_result_size();
     ByteBuffer result = ByteBuffer.allocateDirect(resultSize);
-    execute(nativeVm, context_index, rev, msg, code, size, result);
-    removeContext(context_index);
+    execute(nativeVm, context, rev, msg, code, result);
     return result;
   }
 
@@ -130,7 +130,7 @@ public final class EvmcVm implements AutoCloseable {
    *
    * <p>This is a mandatory method and MUST NOT be set to NULL.
    */
-  native int get_capabilities(ByteBuffer nativeVm);
+  private static native int get_capabilities(ByteBuffer nativeVm);
 
   /** Function is a wrapper around native get_capabilities(). */
   public int get_capabilities() {
@@ -142,7 +142,7 @@ public final class EvmcVm implements AutoCloseable {
    *
    * <p>If the VM does not support this feature the pointer can be NULL.
    */
-  native int set_option(ByteBuffer nativeVm, String name, String value);
+  private static native int set_option(ByteBuffer nativeVm, String name, String value);
 
   /** Function is a wrapper around native set_option(). */
   public int set_option(String name, String value) {
@@ -150,7 +150,7 @@ public final class EvmcVm implements AutoCloseable {
   }
 
   /** get size of result struct */
-  native int get_result_size();
+  private static native int get_result_size();
 
   /**
    * This method cleans up resources

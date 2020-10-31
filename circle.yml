@@ -1,14 +1,15 @@
 version: 2.1
 
-executors:
-  linux:
-    docker:
-      - image: ethereum/cpp-build-env:10
-
 commands:
-  build_and_test:
+  build:
+    parameters:
+      build_type:
+        type: string
+        default: ""
+      toolchain:
+        type: string
+        default: ""
     steps:
-      - checkout
       - run:
           name: "Environment"
           command: |
@@ -19,21 +20,27 @@ commands:
             $CC --version
             $CXX --version
             cmake --version
+
+            # Create the toolchain.info file for cache key.
+            echo '<<parameters.toolchain>>' >> toolchain.info
+            echo '<<parameters.build_type>>' >> toolchain.info
+            $CXX --version >> toolchain.info
+      - restore_cache:
+          name: "Restore Hunter Cache"
+          key: &hunter-cache-key hunter-{{arch}}-{{checksum "toolchain.info"}}-{{checksum "cmake/Hunter/init.cmake"}}
       - run:
           name: "Configure"
           working_directory: ~/build
-          command: cmake ../project -DCMAKE_INSTALL_PREFIX=~/install -DEVMC_TESTING=ON $CMAKE_OPTIONS
+          command: |
+            cmake ../project <<#parameters.build_type>>-DCMAKE_BUILD_TYPE=<<parameters.build_type>><</parameters.build_type>> <<#parameters.toolchain>>-DCMAKE_TOOLCHAIN_FILE=~/project/cmake/cable/toolchains/<<parameters.toolchain>>.cmake<</parameters.toolchain>> -DCMAKE_INSTALL_PREFIX=~/install -DEVMC_TESTING=ON $CMAKE_OPTIONS
+      - save_cache:
+          name: "Save Hunter Cache"
+          key: *hunter-cache-key
+          paths:
+            - ~/.hunter/_Base/Cache
       - run:
           name: "Build"
           command: cmake --build ~/build -- -j4
-      - run:
-          name: "Test"
-          command: |
-            cmake --build ~/build --target test -- ARGS="-j4 --schedule-random --output-on-failure"
-            # Test statically linked end-to-end example
-            ~/build/examples/evmc-example-static
-            # Test dynamically loaded end-to-end example
-            ~/build/examples/evmc-example ~/build/examples/example_vm/libexample-vm.so
       - run:
           name: "Install"
           command: cmake --build ~/build --target install
@@ -52,6 +59,13 @@ commands:
           paths:
             - bin/evmc-vmtester
             - examples/evmc-example
+
+  test:
+    steps:
+      - run:
+          name: "Test"
+          command: |
+            cmake --build ~/build --target test -- ARGS="-j4 --schedule-random --output-on-failure"
 
 jobs:
 
@@ -109,21 +123,14 @@ jobs:
             git commit -m "Update docs"
             git push -f "https://$GITHUB_TOKEN@github.com/ethereum/evmc.git" HEAD:gh-pages
 
-  build-clang9-coverage:
+  build-clang10-coverage:
     docker:
-      - image: ethereum/cpp-build-env:12-clang-9
-    environment:
-      CMAKE_OPTIONS: -DCMAKE_BUILD_TYPE=Coverage
+      - image: ethereum/cpp-build-env:14-clang-10
     steps:
-      - run:
-          name: "Install lcov"
-          working_directory: /tmp
-          command: |
-            sudo apt-get -q update
-            # sudo apt-get install -qy lcov --no-install-recommends
-            apt-get download lcov
-            sudo dpkg -i --force-depends lcov*.deb
-      - build_and_test
+      - checkout
+      - build:
+          build_type: Coverage
+      - test
       - run:
           name: "Collect coverage data"
           working_directory: ~/build
@@ -155,15 +162,30 @@ jobs:
     environment:
       CMAKE_OPTIONS: -DCMAKE_CXX_STANDARD=17
     steps:
-      - build_and_test
+      - checkout
+      - build
+      - test
 
-  build-gcc9-cxx17-ubsan:
+  build-gcc10-cxx17-sanitizers:
     docker:
-      - image: ethereum/cpp-build-env:12-gcc-9
+      - image: ethereum/cpp-build-env:14-gcc-10
     environment:
-      CMAKE_OPTIONS: -DCMAKE_CXX_STANDARD=17 -DSANITIZE=undefined
+      CMAKE_OPTIONS: -DCMAKE_CXX_STANDARD=17 -DSANITIZE=address,undefined
     steps:
-      - build_and_test
+      - checkout
+      - build
+      - test
+
+  build-clang10-cxx17-sanitizers:
+    docker:
+      - image: ethereum/cpp-build-env:14-clang-10
+    environment:
+      CMAKE_OPTIONS: -DCMAKE_CXX_STANDARD=17 -DSANITIZE=address,undefined,nullability,implicit-unsigned-integer-truncation,implicit-signed-integer-truncation
+      UBSAN_OPTIONS: halt_on_error=1
+    steps:
+      - checkout
+      - build
+      - test
 
   build-clang9-cxx14-asan:
     docker:
@@ -172,36 +194,53 @@ jobs:
       CMAKE_OPTIONS: -DCMAKE_CXX_STANDARD=14 -DSANITIZE=address
       UBSAN_OPTIONS: halt_on_error=1
     steps:
-      - build_and_test
+      - checkout
+      - build
+      - test
 
   build-gcc6:
     docker:
       - image: ethereum/cpp-build-env:12-gcc-6
     steps:
-      - build_and_test
+      - checkout
+      - build
+      - test
 
   build-clang5:
     docker:
       - image: ethereum/cpp-build-env:12-clang-5
     steps:
-      - build_and_test
+      - checkout
+      - build
+      - test
 
   build-clang38:
     docker:
       - image: ethereum/cpp-build-env:12-clang-3.8
     steps:
-      - build_and_test
+      - checkout
+      - build
+      - test
 
   build-gcc-32bit:
     docker:
-      - image: ethereum/cpp-build-env:12-base
-    environment:
-      CMAKE_OPTIONS: -DCMAKE_TOOLCHAIN_FILE=~/project/cmake/cable/toolchains/cxx11-32bit.cmake
+      - image: ethereum/cpp-build-env:14-gcc-10-multilib
+    steps:
+      - checkout
+      - build:
+          toolchain: cxx11-32bit
+      - test
+
+  build-cmake-min:
+    docker:
+      - image: circleci/buildpack-deps:bionic
     steps:
       - run:
-          name: "Install GCC 32-bit"
-          command: sudo apt -q update && sudo apt -qy install g++-multilib
-      - build_and_test
+          name: "Install default CMake"
+          command: sudo apt -q update && sudo apt -qy install cmake
+      - checkout
+      - build
+      - test
 
   bindings-go-latest:
     docker:
@@ -209,29 +248,58 @@ jobs:
     steps: &bindings-go-steps
       - checkout
       - run:
+          name: "Environment"
+          command: |
+            go version
+            go env
+            gcc --version
+      - run:
           name: "Go Build"
           command: |
-            go get -v github.com/ethereum/go-ethereum/common
             go build -v ./bindings/go/evmc
             go vet -v ./bindings/go/evmc
             go generate -v ./bindings/go/evmc
             go test -v ./bindings/go/evmc
+      - run:
+          name: "Go module integration test"
+          working_directory: test/gomod
+          command: |
+            test -z "$CIRCLE_PR_USERNAME" || { echo "Skip for PRs from forks"; exit 0; }
+
+            V=$CIRCLE_TAG
+            if [ -z $V ]; then
+              V=$CIRCLE_SHA1
+            fi
+            echo "version: $V"
+
+            go mod init evmc.ethereum.org/evmc_use
+            go get -v $(grep -o 'github.com/ethereum/evmc/v.*' ../../go.mod)@$V
+            go mod tidy -v
+            go mod graph
+            gcc -shared -I../../include ../../examples/example_vm/example_vm.c -o example-vm.so
+            go test -v
+            go mod graph
+
 
   bindings-go-min:
     docker:
-      - image: circleci/golang:1.9
+      - image: circleci/golang:1.11
     steps: *bindings-go-steps
 
   bindings-java:
     docker:
-      - image: circleci/openjdk:11-stretch
+      - image: circleci/openjdk:13-buster
+    environment:
+      CMAKE_OPTIONS: -DEVMC_JAVA=ON
     steps:
-      - checkout
       - run:
-          name: Update environment
+          name: "Install CMake"
           command: |
             sudo apt -qq update
-            sudo apt -yq install build-essential
+            sudo apt -yq install cmake
+      - checkout
+      - build
+      - test
       - run:
           name: "Java Build"
           command: |
@@ -249,10 +317,9 @@ jobs:
       - run:
           name: Update environment
           command: |
-            apt update
-            apt -y install libclang-dev clang
+            apt -qq update
+            apt -yq install libclang-dev clang --no-install-recommends
             rustup component add rustfmt
-            rustup update
       - run:
           name: Check formatting
           command: |
@@ -274,8 +341,13 @@ jobs:
           name: Test with evmc-example
           command: |
             ~/build/examples/evmc-example target/debug/libexamplerustvm.so
+      - run:
+          name: Package evmc-sys
+          # NOTE: can not be run for evmc-vm and evmc-declare due to version dependencies
+          working_directory: bindings/rust/evmc-sys
+          command: cargo package
 
-  bindings-rust-asan-combined:
+  bindings-rust-asan:
     docker:
       - image: rust:1-buster
     steps:
@@ -283,12 +355,10 @@ jobs:
       - run:
           name: Update environment
           command: |
-            echo 'deb http://apt.llvm.org/buster/ llvm-toolchain-buster-8 main' >> /etc/apt/sources.list
-            wget -nv -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+            echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list
             apt -qq update
-            apt -yq  install llvm-8-dev clang-8
+            apt -yq install llvm-8-dev clang-8 --no-install-recommends
             rustup toolchain install nightly-x86_64-unknown-linux-gnu
-            rustup update
       - run:
           name: Build
           command: RUSTFLAGS="-Z sanitizer=address" ASAN_OPTIONS=detect_leaks=1 cargo +nightly build --target x86_64-unknown-linux-gnu
@@ -311,21 +381,29 @@ workflows:
   evmc:
     jobs:
       - lint
-      - build-clang9-coverage
+      - build-clang10-coverage
       - build-gcc8-cxx17
-      - build-gcc9-cxx17-ubsan
+      - build-gcc10-cxx17-sanitizers
+      - build-clang10-cxx17-sanitizers
       - build-clang9-cxx14-asan
       - build-gcc6
       - build-clang5
       - build-clang38
       - build-gcc-32bit
-      - bindings-go-latest
-      - bindings-go-min
+      - build-cmake-min
+      - bindings-go-latest:
+          filters:
+            tags:
+              only: /.*/
+      - bindings-go-min:
+          filters:
+            tags:
+              only: /.*/
       - bindings-java
       - bindings-rust:
           requires:
             - build-gcc8-cxx17
-      - bindings-rust-asan-combined:
+      - bindings-rust-asan:
           requires:
             - build-clang9-cxx14-asan
       - upload-docs:

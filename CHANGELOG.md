@@ -5,18 +5,68 @@ Documentation of all notable changes to the **EVMC** project.
 The format is based on [Keep a Changelog],
 and this project adheres to [Semantic Versioning].
 
+## [7.5.0] — unreleased
 
-## [7.2.0] — unreleased
+## [7.4.0] — 2020-06-24
+
+### Changed
+
+- The C++ standard required increased to **C++14**.
+  [#521](https://github.com/ethereum/evmc/pull/521)
+- The C++ literals for `address` and `bytes32` types have been reimplemented to
+  use `static_assert` to report errors. This makes C++ bindings exception-free
+  (_no-throw guarantee_ level of exception safety).
+  [#520](https://github.com/ethereum/evmc/pull/520)
+
+### Removed
+
+- The support for **Visual Studio 2015** C/C++ compiler has been dropped 
+  as a consequence of requiring C++14.
+  [#521](https://github.com/ethereum/evmc/pull/521)
+
+## [7.3.0] — 2020-05-20
+
+### Added
+
+- Support for **Go modules**.
+  [#486](https://github.com/ethereum/evmc/pull/486)
+
+### Changed
+
+- The minimum **Go version** supported bumped to **1.11** (Go modules are required).
+  [#486](https://github.com/ethereum/evmc/pull/486)
+- Removed dependency on go-ethereum in Go bindings by introducing own `Address` and `Hash` types.
+  [#513](https://github.com/ethereum/evmc/pull/513)
+
+
+## [7.2.0] — 2020-05-13
 
 ### Added
 
 - Added **Java** bindings.
   [#455](https://github.com/ethereum/evmc/pull/455)
-- The C++ EVMC basic types `address` and `bytes32` have all the comparison operators supported.
-  [#474](https://github.com/ethereum/evmc/pull/474)
+  [#490](https://github.com/ethereum/evmc/pull/490)
+  [#503](https://github.com/ethereum/evmc/pull/503)
+  [#512](https://github.com/ethereum/evmc/pull/512)
 - New **evmc command-line tool** has been added. At the moment it supports
   command _run_ for executing bytecode in any EVMC-compatible VM implementation.
   Try `evmc run --help` for more information.
+- C++: EVMC basic types `address` and `bytes32` have all the comparison operators supported.
+  [#474](https://github.com/ethereum/evmc/pull/474)
+- C++: Convenient constructors from `uint64_t` added for basic types `address` and `bytes32`.
+  [#488](https://github.com/ethereum/evmc/pull/488)
+- C++: Added `VM::get_raw_pointer()` method to directly access VM C API when needed.
+  [#492](https://github.com/ethereum/evmc/pull/492)
+
+### Changed
+
+- CMake minimum version required has been bumped to [3.10](https://cmake.org/cmake/help/v3.10/release/3.10.html).
+  [#495](https://github.com/ethereum/evmc/pull/495)
+
+### Fixed
+
+- The implementation of C++ `operator<` for `evmc::address` and `evmc::bytes32` has been fixed.
+  [#498](https://github.com/ethereum/evmc/pull/498)
 
 
 ## [7.1.0] — 2019-11-29
@@ -102,7 +152,7 @@ removed.
   [#445](https://github.com/ethereum/evmc/pull/445)
   [#449](https://github.com/ethereum/evmc/pull/449)
   [#451](https://github.com/ethereum/evmc/pull/451)
-   
+
 
 
 ## [6.3.1] - 2019-08-19
@@ -440,7 +490,10 @@ removed.
   [#52](https://github.com/ethereum/evmc/pull/52)
 
 
-[7.2.0]: https://github.com/ethereum/evmc/compare/v7.1.0...master
+[7.5.0]: https://github.com/ethereum/evmc/compare/master..v7.4.0
+[7.4.0]: https://github.com/ethereum/evmc/releases/tag/v7.4.0
+[7.3.0]: https://github.com/ethereum/evmc/releases/tag/v7.3.0
+[7.2.0]: https://github.com/ethereum/evmc/releases/tag/v7.2.0
 [7.1.0]: https://github.com/ethereum/evmc/releases/tag/v7.1.0
 [7.0.0]: https://github.com/ethereum/evmc/releases/tag/v7.0.0
 [6.3.1]: https://github.com/ethereum/evmc/releases/tag/v6.3.1

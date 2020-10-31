@@ -1,3 +1,6 @@
+// EVMC: Ethereum Client-VM Connector API.
+// Copyright 2019-2020 The EVMC Authors.
+// Licensed under the Apache License, Version 2.0.
 package org.ethereum.evmc;
 
 import static java.util.Objects.requireNonNull;
@@ -13,138 +16,75 @@ import java.util.List;
  * <p>The set of all callback functions expected by VM instances.
  */
 final class Host {
+  static private ByteBuffer ensureDirectBuffer(ByteBuffer input) {
+    // Reallocate if needed.
+    if (!input.isDirect())
+      return ByteBuffer.allocateDirect(input.remaining()).put(input);
+    return input;
+  }
+
   /** Check account existence callback function. */
-  static int account_exists(int context_index, byte[] address) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    return context.accountExists(address) ? 1 : 0;
+  static boolean account_exists(HostContext context, byte[] address) {
+    return context.accountExists(address);
   }
 
   /** Get storage callback function. */
-  static ByteBuffer get_storage(int context_index, byte[] address, byte[] key) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    return context.getStorage(address, key);
+  static ByteBuffer get_storage(HostContext context, byte[] address, byte[] key) {
+    return ensureDirectBuffer(context.getStorage(address, key));
   }
 
   /** Set storage callback function. */
-  static int set_storage(int context_index, byte[] address, byte[] key, byte[] value) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
+  static int set_storage(HostContext context, byte[] address, byte[] key, byte[] value) {
     return context.setStorage(address, key, value);
   }
   /** Get balance callback function. */
-  static ByteBuffer get_balance(int context_index, byte[] address) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    return context.getBalance(address);
+  static ByteBuffer get_balance(HostContext context, byte[] address) {
+    return ensureDirectBuffer(context.getBalance(address));
   }
 
   /** Get code size callback function. */
-  static int get_code_size(int context_index, byte[] address) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
+  static int get_code_size(HostContext context, byte[] address) {
     return context.getCodeSize(address);
   }
 
   /** Get code hash callback function. */
-  static ByteBuffer get_code_hash(int context_index, byte[] address) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    return context.getCodeHash(address);
+  static ByteBuffer get_code_hash(HostContext context, byte[] address) {
+    return ensureDirectBuffer(context.getCodeHash(address));
   }
 
   /** Copy code callback function. */
-  static ByteBuffer copy_code(int context_index, byte[] address, int code_offset) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    byte[] code = context.getCode(address).array();
-
-    if (code != null && code_offset > 0 && code_offset < code.length) {
-      int length = code.length - code_offset;
-      return ByteBuffer.wrap(code, 0, length);
-    }
-
-    return ByteBuffer.wrap(new byte[0]);
+  static ByteBuffer copy_code(HostContext context, byte[] address) {
+    return ensureDirectBuffer(context.getCode(address));
   }
 
   /** Selfdestruct callback function. */
-  static void selfdestruct(int context_index, byte[] address, byte[] beneficiary) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
+  static void selfdestruct(HostContext context, byte[] address, byte[] beneficiary) {
     context.selfdestruct(address, beneficiary);
   }
 
   /** Call callback function. */
-  static ByteBuffer call(int context_index, ByteBuffer msg) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    return context.call(msg);
+  static ByteBuffer call(HostContext context, ByteBuffer msg) {
+    return ensureDirectBuffer(context.call(msg));
   }
 
   /** Get transaction context callback function. */
-  static ByteBuffer get_tx_context(int context_index) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    return context.getTxContext();
+  static ByteBuffer get_tx_context(HostContext context) {
+    return ensureDirectBuffer(context.getTxContext());
   }
 
   /** Get block hash callback function. */
-  static ByteBuffer get_block_hash_fn(int context_index, long number) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
-    return context.getBlockHash(number);
+  static ByteBuffer get_block_hash_fn(HostContext context, long number) {
+    return ensureDirectBuffer(context.getBlockHash(number));
   }
 
   /** Emit log callback function. */
   static void emit_log(
-      int context_index,
+      HostContext context,
       byte[] address,
       byte[] data,
       int data_size,
       byte[][] topics,
       int topic_count) {
-    HostContext context =
-        requireNonNull(
-            getContext(context_index),
-            "HostContext does not exist for context_index: " + context_index);
     context.emitLog(address, data, data_size, topics, topic_count);
   }
-
-  static HostContext getContext(int index) {
-    return contextList.get(index);
-  }
-
-  static synchronized int addContext(HostContext context) {
-    contextList.add(context);
-    return contextList.size() - 1;
-  }
-
-  static void removeContext(int index) {
-    contextList.remove(index);
-  }
-
-  private static List<HostContext> contextList = Collections.synchronizedList(new ArrayList<>());
 }

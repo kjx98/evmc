@@ -9,20 +9,7 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-// TODO: with bindgen's interface improving these may be moved to
-// bindgen configuration
-
-impl PartialEq for evmc_address {
-    fn eq(&self, other: &Self) -> bool {
-        self.bytes == other.bytes
-    }
-}
-
-impl PartialEq for evmc_bytes32 {
-    fn eq(&self, other: &Self) -> bool {
-        self.bytes == other.bytes
-    }
-}
+// TODO: add `.derive_default(true)` to bindgen instead?
 
 impl Default for evmc_address {
     fn default() -> Self {

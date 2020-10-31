@@ -1,5 +1,5 @@
 # EVMC: Ethereum Client-VM Connector API.
-# Copyright 2016-2019 The EVMC Authors.
+# Copyright 2016-2020 The EVMC Authors.
 # Licensed under the Apache License, Version 2.0.
 
 cmake_minimum_required(VERSION 3.10)
@@ -21,6 +21,8 @@ include(CMakeDependentOption)
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
+option(EVMC_JAVA "Enable building Java Native Interface (JNI) bindings" OFF)
+
 option(EVMC_INSTALL "Enable EVMC installation (e.g. make install)" ON)
 
 option(EVMC_TESTING "Build everything (libraries, tools, examples, internal tests)" OFF)
@@ -35,15 +37,15 @@ option(HUNTER_ENABLED "Enable Hunter package manager support" ${EVMC_TOOLS})
 
 if(HUNTER_ENABLED)
     set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Build type of Hunter packages")
+    option(HUNTER_USE_CACHE_SERVERS "Use default Hunter cache servers" NO)
     include(HunterGate)
     include(Hunter/init)
-    include(defaults/HunterCacheServers)
 endif()
 
 cable_set_build_type(DEFAULT Release CONFIGURATION_TYPES Debug Release)
 
 project(evmc)
-set(PROJECT_VERSION 7.2.0-alpha.0)
+set(PROJECT_VERSION 7.5.0-alpha.0)
 
 cable_configure_compiler(NO_STACK_PROTECTION)
 if(CABLE_COMPILER_CLANG)
@@ -57,6 +59,10 @@ endif()
 set(include_dir ${PROJECT_SOURCE_DIR}/include)
 
 add_subdirectory(lib)
+
+if(EVMC_JAVA)
+    add_subdirectory(bindings/java)
+endif()
 
 if(EVMC_TOOLS)
     add_subdirectory(tools)

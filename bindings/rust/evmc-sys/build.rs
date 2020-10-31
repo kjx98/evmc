@@ -22,7 +22,14 @@ fn gen_bindings() {
         .rustified_enum("*")
         // force deriving the Hash trait on basic types (address, bytes32)
         .derive_hash(true)
+        // force deriving the PratialEq trait on basic types (address, bytes32)
+        .derive_partialeq(true)
         .opaque_type("evmc_host_context")
+        .whitelist_type("evmc_.*")
+        .whitelist_function("evmc_.*")
+        .whitelist_var("EVMC_ABI_VERSION")
+        // TODO: consider removing this
+        .size_t_is_usize(true)
         .generate()
         .expect("Unable to generate bindings");
 
